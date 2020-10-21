@@ -2,44 +2,53 @@ const http = require('http');
 const Koa = require('koa');
 const Router = require('koa-router');
 const cors = require('koa2-cors');
+const koaBody = require('koa-body');
 
 const app = new Koa();
 app.use(cors());
+app.use(koaBody({ json: true }));
 
 let nextId = 1;
-const skills = [
-    { id: nextId++, name: "React" },
-    { id: nextId++, name: "Redux" },
-    { id: nextId++, name: "Redux Thunk" },
-    { id: nextId++, name: "RxJS" },
-    { id: nextId++, name: "Redux Observable" },
-    { id: nextId++, name: "Redux Saga" },
+const services = [
+    { id: nextId++, name: 'Замена стекла', price: 21000, content: 'Стекло оригинал от Apple'},
+    { id: nextId++, name: 'Замена дисплея', price: 25000, content: 'Дисплей оригинал от Foxconn'},
+    { id: nextId++, name: 'Замена аккумулятора', price: 4000, content: 'Новый на 4000 mAh'},
+    { id: nextId++, name: 'Замена микрофона', price: 2500, content: 'Оригинальный от Apple'},
 ];
 
 const router = new Router();
 
-let isEven = true;
-router.get('/api/search', async (ctx, next) => {
-    if (Math.random() > 0.75) {
-        ctx.response.status = 500;
-        return;
-    }
-
-    const { q } = ctx.request.query;
-    console.log(q);
-
+function fortune(ctx, body = null, status = 200) {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
+            if (Math.random() > 0.25) {
+                ctx.response.status = status;
+                ctx.response.body = body;
+                resolve();
+                return;
+            }
 
-            const response = skills.filter(o => o.name.toLowerCase().startsWith(q.toLowerCase()))
-            ctx.response.body = response;
-            resolve();
-        }, isEven ? 1 * 1000 : 5 * 1000);
-        isEven = !isEven;
-    });
+            reject(new Error('Something bad happened'));
+        }, 3 * 1000);
+    })
+}
+
+router.get('/api/services', async (ctx, next) => {
+    const body = services.map(o => ({id: o.id, name: o.name, price: o.price}))
+    return fortune(ctx, body);
+});
+router.get('/api/services/:id', async (ctx, next) => {
+    const id = Number(ctx.params.id);
+    const index = services.findIndex(o => o.id === id);
+    if (index === -1) {
+        const status = 404;
+        return fortune(ctx, null, status);
+    }
+    const body = services[index];
+    return fortune(ctx, body);
 });
 
-app.use(router.routes())
+app.use(router.routes());
 app.use(router.allowedMethods());
 
 const port = process.env.PORT || 7070;
